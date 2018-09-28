@@ -22,7 +22,7 @@ if (!tty.getWindowSize) {
 }
 const config = {
     reporter: 'mocha-jenkins-reporter',
-    ui: 'tdd',
+    ui: 'bdd',
     useColors: true,
     timeout: 15000
 };

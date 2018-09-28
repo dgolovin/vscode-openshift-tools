@@ -5,10 +5,8 @@ import * as download from './download';
 import * as fsex from 'fs-extra';
 import { which } from 'shelljs';
 import * as fs from 'fs';
-import { Platform } from './platform';
-import targz = require('targz');
-import unzipm = require('unzip-stream');
-import * as zlib from 'zlib';
+import { File } from './file';
+import * as Settings from './settings';
 import * as opn from 'opn';
 import hasha = require('hasha');
 
@@ -76,9 +74,9 @@ const toolsConfig = {
     }
 };
 
-const tools = loadMetadata(toolsConfig, process.platform);
+export const tools = loadMetadata(toolsConfig, process.platform);
 
-class Cli implements ICli {
+export class Cli implements ICli {
     async execute(cmd: string, opts: any = {}): Promise<CliExitData> {
         return new Promise<CliExitData>(async (resolve, reject) => {
             const cmdName = cmd.split(' ')[0];
@@ -106,7 +104,7 @@ export interface OdoChannel {
     print(text: string);
 }
 
-class OdoChannelImpl implements OdoChannel {
+export class OdoChannelImpl implements OdoChannel {
     private readonly channel: vscode.OutputChannel = vscode.window.createOutputChannel("OpenShift Do");
     print(text: string) {
         this.channel.append(text);
@@ -117,9 +115,9 @@ class OdoChannelImpl implements OdoChannel {
     }
 }
 
-async function getToolLocation(cmd): Promise<string> {
-    let toolLocation = path.resolve(Platform.getUserHomePath(), '.vs-openshift', tools[cmd].cmdFileName);
-    const toolDlLocation = path.resolve(Platform.getUserHomePath(), '.vs-openshift', tools[cmd].dlFileName);
+export async function getToolLocation(cmd): Promise<string> {
+    let toolLocation = path.resolve(Settings.ROOT, tools[cmd].cmdFileName);
+    const toolDlLocation = path.resolve(Settings.ROOT, tools[cmd].dlFileName);
     const pathTool = which(cmd);
     if (pathTool === null) {
         try {
@@ -127,7 +125,7 @@ async function getToolLocation(cmd): Promise<string> {
         } catch (error) {
             const response = await vscode.window.showInformationMessage(
                 `Cannot find ${tools[cmd].description}.`, 'Download and install', 'Help', 'Cancel');
-            if(response === 'Download and install') {
+            if (response === 'Download and install') {
                 await fsex.ensureDir(path.dirname(toolLocation));
                 let action: string = "Continue";
                 do {
@@ -135,36 +133,33 @@ async function getToolLocation(cmd): Promise<string> {
                         cancellable: true,
                         location: vscode.ProgressLocation.Notification,
                         title: `Downloading ${tools[cmd].description}: `
-                        },
-                        (progress: vscode.Progress<{increment: number, message: string}>, token: vscode.CancellationToken) => {
+                    },
+                        (progress: vscode.Progress<{ increment: number, message: string }>, token: vscode.CancellationToken) => {
                             return download.downloadFile(
                                 tools[cmd].url,
                                 toolDlLocation,
-                                (dlProgress, increment) => progress.report({ increment, message: `${dlProgress}%`})
+                                (dlProgress, increment) => progress.report({ increment, message: `${dlProgress}%` })
                             );
-                    });
+                        });
                     if (tools[cmd].sha256sum && tools[cmd].sha256sum !== "") {
-                        const sha256sum: string = await hasha.fromFile(toolDlLocation, {algorithm: 'sha256'});
-                        if(sha256sum !== tools[cmd].sha256sum) {
+                        const sha256sum: string = await hasha.fromFile(toolDlLocation, { algorithm: 'sha256' });
+                        if (sha256sum !== tools[cmd].sha256sum) {
                             fsex.removeSync(toolDlLocation);
-                            action = await vscode.window.showInformationMessage(`Checksum for ownloaded ${tools[cmd].description} is not correct.`, 'Download again', 'Cancel');
+                            action = await vscode.window.showInformationMessage(`Checksum for downloaded ${tools[cmd].description} is not correct.`, 'Download again', 'Cancel');
                         }
                     } else {
                         action = 'Continue';
                     }
-                } while(action === 'Download again');
+                } while (action === 'Download again');
 
                 if (action === 'Continue') {
-                    if (toolDlLocation.endsWith('.zip') || toolDlLocation.endsWith('.tar.gz')) {
-                        await unzip(toolDlLocation, path.resolve(Platform.getUserHomePath(), '.vs-openshift'), tools[cmd].filePrefix);
-                    } else if (toolDlLocation.endsWith('.gz')) {
-                        await unzip(toolDlLocation, toolLocation, tools[cmd].filePrefix);
-                    }
+                    let destination: string = toolDlLocation.endsWith('.gz') ? toolLocation : path.resolve(Settings.ROOT);
+                    await File.extract(toolDlLocation, destination, tools[cmd].filePrefix);
                     if (process.platform !== 'win32') {
                         fs.chmodSync(toolLocation, 0o765);
                     }
                 }
-            } else if(response === `Help`) {
+            } else if (response === `Help`) {
                 opn('https://github.com/redhat-developer/vscode-openshift-tools#dependencies');
             }
         }
@@ -174,7 +169,7 @@ async function getToolLocation(cmd): Promise<string> {
     return toolLocation;
 }
 
-function loadMetadata(requirements, platform) {
+export function loadMetadata(requirements, platform) {
     const reqs = JSON.parse(JSON.stringify(requirements));
     for (const object in requirements) {
         if (reqs[object].platform) {
@@ -187,45 +182,6 @@ function loadMetadata(requirements, platform) {
         }
     }
     return reqs;
-}
-
-function unzip(zipFile, extractTo, prefix): Promise<any> {
-    return new Promise((resolve, reject) => {
-        if (zipFile.endsWith('.tar.gz')) {
-            targz.decompress({
-                src: zipFile,
-                dest: extractTo,
-                tar: {
-                    map: (header) => prefix && header.name.startsWith(prefix) ? header.name = header.name.substring(prefix.length) : header
-                }
-            }, (err)=> {
-                err ? reject(err) : resolve();
-            });
-        } else if (zipFile.endsWith('.gz')) {
-            gunzip(zipFile, extractTo)
-                .then(resolve)
-                .catch(reject);
-        } else if (zipFile.endsWith('.zip')) {
-            fs.createReadStream(zipFile)
-                .pipe(unzipm.Extract({ path: extractTo }))
-                .on('error', reject)
-                .on('close', resolve);
-        } else {
-            reject(`unsupported extension for '${zipFile}'`);
-        }
-    });
-  }
-
-export function gunzip(source, destination): Promise<any> {
-    return new Promise((res, rej) => {
-        try {
-            const dest = fs.createWriteStream(destination);
-            fs.createReadStream(source).pipe(zlib.createGunzip()).pipe(dest);
-            dest.on('close', res);
-        } catch (err) {
-            rej(err);
-        }
-    });
 }
 
 export const odoChannel = new OdoChannelImpl();

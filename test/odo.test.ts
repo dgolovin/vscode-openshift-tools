@@ -11,7 +11,7 @@ import * as assert from 'assert';
 import { RSA_PKCS1_OAEP_PADDING } from 'constants';
 import { FunctionBreakpoint } from 'vscode';
 
-suite("odo integration tests", () => {
+describe("odo integration tests", () => {
 
     function create(stdout: string) {
         return {
@@ -25,7 +25,7 @@ suite("odo integration tests", () => {
         };
     }
 
-    suite("odo catalog integration", () => {
+    it("odo catalog integration", () => {
         const http = 'httpd';
         const nodejs = 'nodejs';
         const python = 'python';
@@ -38,22 +38,22 @@ suite("odo integration tests", () => {
         ].join('\n'));
         let result: string[];
 
-        suiteSetup(async () => {
+        before(async () => {
             result = await odo.create(odoCatalogCli).getComponentTypes();
         });
 
-        test("Odo->getComponentTypes() returns correct number of component types", () => {
+        it("Odo->getComponentTypes() returns correct number of component types", () => {
             assert(result.length === 3);
         });
 
-        test("Odo->getComponentTypes() returns correct component type names", () => {
+        it("Odo->getComponentTypes() returns correct component type names", () => {
             const resultArray = result.filter((element: string) => {
                 return element === http || element === nodejs || element === python;
             });
             assert(resultArray.length === 3);
         });
 
-        test("Odo->getComponentTypeVersions() returns correct number of tags for component type", () => {
+        it("Odo->getComponentTypeVersions() returns correct number of tags for component type", () => {
             return Promise.all([
                 odo.create(odoCatalogCli).getComponentTypeVersions(nodejs).then((result)=> {
                     assert(result.length === 1);
@@ -68,7 +68,7 @@ suite("odo integration tests", () => {
         });
     });
 
-    suite("odo service integration", () => {
+    describe("odo service integration", () => {
         const svc1 = 'svc1';
         const svc2 = 'svc2';
         const svc3 = 'svc3';
@@ -82,11 +82,11 @@ suite("odo integration tests", () => {
 
         let result: string[];
 
-        suiteSetup(async () => {
+        before(async () => {
             result = await odo.create(odoProjCli).getServiceTemplates();
         });
 
-        test("Odo->getServiceTemplates() returns correct number of services", () => {
+        it("Odo->getServiceTemplates() returns correct number of services", () => {
             assert(result.length === 3);
         });
     });

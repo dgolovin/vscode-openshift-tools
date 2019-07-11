@@ -32,6 +32,9 @@ suite('openshift connector Extension', async () => {
 
     setup(async () => {
         sandbox = sinon.createSandbox();
+        sandbox.stub(vscode.workspace, 'workspaceFolders').value(
+            [{uri: vscode.Uri.parse('file:///c/test'), index: 0, name: 'name'}]
+        );
         const stub = sandbox.stub(Cluster, 'about');
         await vscode.commands.executeCommand('openshift.about');
         stub.restore();
@@ -72,6 +75,10 @@ suite('openshift connector Extension', async () => {
         });
         osc.forEach((item) => vscode.commands.executeCommand(item));
         expect(vscode.window.showErrorMessage).has.not.been.called;
+    });
+
+    test('should load components from workspace folders', async () => {
+        console.log(vscode.workspace.workspaceFolders);
     });
 
     test('should register all extension commands declared commands in package descriptor', async () => {

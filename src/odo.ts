@@ -104,10 +104,6 @@ export class Command {
     static listServiceInstances(project: string, app: string) {
         return `oc get ServiceInstance -o jsonpath="{range .items[?(.metadata.labels.app == \\"${app}\\")]}{.metadata.labels.app\\.kubernetes\\.io/component-name}{\\"\\n\\"}{end}" --namespace ${project}`;
     }
-    @verbose
-    static createApplication(project: string, app: string) {
-        return `odo app create ${app} --project ${project}`;
-    }
     static describeApplication(project: string, app: string) {
         return `odo app describe ${app} --project ${project}`;
     }

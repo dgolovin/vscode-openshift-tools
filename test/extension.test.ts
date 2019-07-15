@@ -47,7 +47,7 @@ suite('openshift connector Extension', async () => {
         const stub = sandbox.stub(Cluster, 'about');
         try {
             await vscode.commands.executeCommand('openshift.about');
-        } catch(ignore) {
+        } catch (ignore) {
         } finally {
             stub.restore();
         }

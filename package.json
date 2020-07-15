@@ -333,7 +333,7 @@
       },
       {
         "command": "openshift.project.set",
-        "title": "Activate",
+        "title": "Set Active Project",
         "category": "OpenShift"
       },
       {
@@ -955,6 +955,11 @@
         {
           "command": "openshift.project.create",
           "when": "view == openshiftProjectExplorer && viewItem == cluster && isLoggedIn",
+          "group": "c1"
+        },
+        {
+          "command" : "openshift.project.set",
+          "when": "view == openshiftProjectExplorer && viewItem == cluster",
           "group": "c1"
         },
         {
